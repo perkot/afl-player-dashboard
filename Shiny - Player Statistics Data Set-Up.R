@@ -76,58 +76,69 @@ afl.2 <- afl.1 %>%
 
 # calculate average stats for each player 
 
-player <- afl.2 %>%
+# player <- afl.2 %>%
+#   group_by(player_id,
+#            player_first_name,
+#            player_last_name,
+#            player_height_cm,
+#            player_weight_kg) %>%
+#   summarise(
+#     Brownlow_Votes = round(mean(brownlow_votes),2),
+#     Behinds = round(mean(behinds),2),
+#     Bounces = round(mean(bounces),2),
+#     Centre_Clearances = round(mean(centre_clearances),2),
+#     Clangers = round(mean(clangers),2),
+#     Clearances = round(mean(clearances),2),
+#     Contest_Def_Losses = round(mean(contest_def_losses),2),
+#     Contest_Def_One_On_Ones = round(mean(contest_def_one_on_ones),2),
+#     Contested_Marks = round(mean(contested_marks),2),
+#     Contest_Off_One_On_Ones = round(mean(contest_off_one_on_ones),2),
+#     Contest_Off_Wins = round(mean(contest_off_wins),2),
+#     Contested_Possessions = round(mean(contested_possessions),2),
+#     Def_Half_Pressure_Acts = round(mean(def_half_pressure_acts),2),
+#     Disposals = round(mean(disposals),2),
+#     Disposal_Efficiency = round(mean(disposal_efficiency_percentage),2),
+#     Effective_Kicks = round(mean(effective_kicks),2),
+#     Forward_50_GroundBall_Gets = round(mean(f50_ground_ball_gets),2),
+#     Frees_For = round(mean(free_kicks_for),2),
+#     Frees_Against = round(mean(free_kicks_against),2),
+#     Goals = round(mean(goals),2),
+#     Goal_Assists = round(mean(goal_assists),2),
+#     GroundBall_Gets = round(mean(ground_ball_gets),2),
+#     Handballs = round(mean(handballs),2),
+#     Hitouts = round(mean(hitouts),2),
+#     Hitouts_To_Advantage = round(mean(hitouts_to_advantage),2),
+#     Inside_50s = round(mean(inside_fifties),2),
+#     Intercepts = round(mean(intercepts),2),
+#     Intercept_Marks = round(mean(intercept_marks),2),
+#     Kicks = round(mean(kicks),2),
+#     Marks_Inside_50 = round(mean(marks_inside_fifty),2),
+#     Metres_Gained = round(mean(metres_gained),2),
+#     One_Percenters = round(mean(one_percenters),2),
+#     Pressure_Acts = round(mean(pressure_acts),2),
+#     Rebounds = round(mean(rebounds),2),
+#     Ruck_Contests = round(mean(ruck_contests),2),
+#     Score_Involvements = round(mean(score_involvements),2),
+#     Score_Launches = round(mean(score_launches),2),
+#     Spoils = round(mean(spoils),2),
+#     Stoppage_Clearances = round(mean(stoppage_clearances),2),
+#     Tackles = round(mean(tackles),2),
+#     Tackles_Inside_50 = round(mean(tackles_inside_fifty),2),
+#     Time_On_Ground_Percentage = round(mean(time_on_ground_percentage),2),
+#     Turnovers = round(mean(turnovers),2),
+#     Uncontested_Possessions = round(mean(uncontested_possessions),2)
+#   )
+
+player <- afl.2 %>% 
   group_by(player_id,
            player_first_name,
-           player_last_name,
-           player_height_cm,
-           player_weight_kg) %>%
-  summarise(
-    Brownlow_Votes = round(mean(brownlow_votes),2),
-    Behinds = round(mean(behinds),2),
-    Bounces = round(mean(bounces),2),
-    Centre_Clearances = round(mean(centre_clearances),2),
-    Clangers = round(mean(clangers),2),
-    Clearances = round(mean(clearances),2),
-    Contest_Def_Losses = round(mean(contest_def_losses),2),
-    Contest_Def_One_On_Ones = round(mean(contest_def_one_on_ones),2),
-    Contested_Marks = round(mean(contested_marks),2),
-    Contest_Off_One_On_Ones = round(mean(contest_off_one_on_ones),2),
-    Contest_Off_Wins = round(mean(contest_off_wins),2),
-    Contested_Possessions = round(mean(contested_possessions),2),
-    Def_Half_Pressure_Acts = round(mean(def_half_pressure_acts),2),
-    Disposals = round(mean(disposals),2),
-    Disposal_Efficiency = round(mean(disposal_efficiency_percentage),2),
-    Effective_Kicks = round(mean(effective_kicks),2),
-    Forward_50_GroundBall_Gets = round(mean(f50_ground_ball_gets),2),
-    Frees_For = round(mean(free_kicks_for),2),
-    Frees_Against = round(mean(free_kicks_against),2),
-    Goals = round(mean(goals),2),
-    Goal_Assists = round(mean(goal_assists),2),
-    GroundBall_Gets = round(mean(ground_ball_gets),2),
-    Handballs = round(mean(handballs),2),
-    Hitouts = round(mean(hitouts),2),
-    Hitouts_To_Advantage = round(mean(hitouts_to_advantage),2),
-    Inside_50s = round(mean(inside_fifties),2),
-    Intercepts = round(mean(intercepts),2),
-    Intercept_Marks = round(mean(intercept_marks),2),
-    Kicks = round(mean(kicks),2),
-    Marks_Inside_50 = round(mean(marks_inside_fifty),2),
-    Metres_Gained = round(mean(metres_gained),2),
-    One_Percenters = round(mean(one_percenters),2),
-    Pressure_Acts = round(mean(pressure_acts),2),
-    Rebounds = round(mean(rebounds),2),
-    Ruck_Contests = round(mean(ruck_contests),2),
-    Score_Involvements = round(mean(score_involvements),2),
-    Score_Launches = round(mean(score_launches),2),
-    Spoils = round(mean(spoils),2),
-    Stoppage_Clearances = round(mean(stoppage_clearances),2),
-    Tackles = round(mean(tackles),2),
-    Tackles_Inside_50 = round(mean(tackles_inside_fifty),2),
-    Time_On_Ground_Percentage = round(mean(time_on_ground_percentage),2),
-    Turnovers = round(mean(turnovers),2),
-    Uncontested_Possessions = round(mean(uncontested_possessions),2)
-  )
+           player_last_name) %>%
+  summarise_at(.vars = colnames(.)[6:49], mean) # calculate mean for all specified columns 
+
+player <- as.data.frame(test)
+
+player <- test %>% mutate_if(is.numeric, ~round(., 2))
+
 
 # number of games 
 
@@ -215,12 +226,17 @@ position$PositionType[
 # get count of positions per player, then potentially select max 
 
 position2 <- position %>% 
-  group_by(player_id, PositionType) %>% 
+  group_by(player_id, 
+           PositionType) %>% 
   summarise(Position_Count = dplyr::n())
 
 # Order by player, then how often they were named in a particular position 
 position2 <- position2[with(position2, 
                             order(player_id, Position_Count)), ]
+
+# Issue with interchange players 
+# position2 <- position2[!(position2$PositionType == "Interchange"),]
+
 
 # keep only columns with max value 
 position2 <- position2 %>% 
