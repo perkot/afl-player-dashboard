@@ -1,0 +1,495 @@
+---
+title: "Shiny application to explore player averages for AFL match statistics"
+author: "Tom Perkins"
+date: "11 September 2020"
+output:
+  prettydoc::html_pretty:
+    theme: caymen
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The ABC recently publish an interesting piece of data-journalism exploring ["what makes Fremantle Dockers captain Nat Fyfe so good?"](https://www.abc.net.au/news/2020-09-03/what-makes-afl-fremantle-dockers-captain-nat-fyfe-so-good/12620266) The authors put forth a compelling, data-driven case for the specific attributes that make Nathan Fyfe stand out from other players 
+Below is an eye-catching visualization from the article:
+
+![Alt text](/Users/perkot/Dropbox/Analytics/Personal/R/git/afl-player-dashboard/The Flying Bulldozer screencap.png)
+The scatterplot above depicts *contested possessions* (x-axis) by *contested marks* (y-axis). Each *blue data-point* is a player's statistical average on these metrics for a *single* season
+
+It shows between 2014 and 2019, Nat Fyfe was something of a statistical anomaly - exhibiting a rare combination of elite contested ball winning ability and aerial dominance. No other player in the competition was able to combine these two traits to such a level
+
+To this end, the authors ordain Nat Fyfe as the **The Flying Bulldozer**
+
+This got me thinking what other players demonstrate anomalously good skill-profiles for specific combinations of metrics?
+
+A flexible way to answer this question is via an **interactive shiny application** that loosely replicates the above scatterplot, but also allows end-users to input match-day metrics of their choosing
+
+This *walkthrough* will cover how to do this, summarizing:
+
+* Sourcing, preparing & modeling of data
+* Extracting additional features such as *# of games*
+* Launching & programming the Shiny app 
+* Sharing some of my own examples of player/metric combinations that stood out 
+
+Let's dive in!
+ 
+## The Data
+
+As per [my previous post](https://perkot.github.io/afl-stats/), I have utilized the **["FitzRoy"](https://cran.r-project.org/web/packages/fitzRoy/index.html)** package to extract data from [AFLTables](https://afltables.com/afl/afl_index.html) & [Footywire](https://www.footywire.com/)
+
+Referencing this [useful link by the Fitzory package author](https://analysisofafl.netlify.app/fitzroy/2020-06-11-more-data-on-fitzroy-as-featured-on-abc/), I was able to find a faster, more data-rich method to source this data
+
+In my previous post, extracting data was relatively time-consuming, & required imputation of **match_ids** corresponding to the range of games
+
+The below code snippet only requires the *year(s)* of interest to be imputed
+
+```{r Load dependencies, results='hide', message=FALSE, warning=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(plotly)
+library(fitzRoy)
+library(shiny)
+library(shinyWidgets)
+library(ggthemes)
+library(tableHTML)
+library(kableExtra)
+library(knitr)
+```
+
+```{r load data, results='hide', message=FALSE, warning=FALSE}
+afl.1 <- get_fryzigg_stats(start = 2017, 
+                           end = 2020)
+```
+
+The structure of this extract includes all AFL premiership season matches from 2017 to the present. Each individual match is associated with 44 rows, one for each player who participated in the game. Over four seasons of football, this accumulates to 33,264 rows of data
+
+## Re-shape the data to player averages 
+
+Two key steps required to transform this data are:
+
+* Aggregation so each row reflects statistical *averages* for each player 
+* Calculation of other salient player details - specifically players **current team**, **# of games** & **field position**
+
+To make things more manageable, let's filter to only the fields of interest 
+
+```{r change variable types, message=FALSE, warning=FALSE}
+afl.2 <- afl.1 %>% 
+  select(# player details
+         player_id,
+         player_first_name,
+         player_last_name,
+         # player statistics 
+         kicks,
+         handballs,
+         disposals,
+         disposal_efficiency_percentage,
+         goals,
+         behinds,
+         hitouts,
+         tackles,
+         rebounds,
+         inside_fifties,
+         clearances,
+         clangers,
+         free_kicks_for,
+         free_kicks_against,
+         contested_possessions,
+         uncontested_possessions,
+         brownlow_votes,
+         contested_marks,
+         marks_inside_fifty,
+         one_percenters,
+         bounces,
+         goal_assists,
+         time_on_ground_percentage,
+         centre_clearances,
+         stoppage_clearances,
+         score_involvements,
+         metres_gained,
+         turnovers,
+         intercepts,
+         tackles_inside_fifty,
+         contest_def_losses,
+         contest_def_one_on_ones,
+         contest_off_one_on_ones,
+         contest_off_wins,
+         def_half_pressure_acts,
+         effective_kicks,
+         f50_ground_ball_gets,
+         ground_ball_gets,
+         hitouts_to_advantage,
+         intercept_marks,
+         pressure_acts,
+         ruck_contests,
+         score_launches,
+         spoils
+         )
+```
+
+& calculate the *average* match-day statistics for each player 
+
+This is achieved by grouping the data by *player*, then using **summarise_at** to calculate the arithmetic average (i.e. *mean*) for all 43 match-day statistics  
+
+```{r aggregate player statistics}
+# Aggregate
+player <- afl.2 %>% 
+  group_by(player_id,
+           player_first_name,
+           player_last_name) %>%
+  summarise_at(.vars = colnames(.)[4:47], mean) # calculate mean for all stats 
+# Ensure table is dataframe
+player <- as.data.frame(player)
+# round numeric columns to 2 decimal places 
+player <- player %>% mutate_if(is.numeric, ~round(., 2))
+```
+
+Which produces the below table:
+
+```{r print table preview3, echo=FALSE}
+kable(head(player)) %>% #head limits to just top rows
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive", font_size = 8))
+```
+
+## Additional Fields
+
+### Number of games 
+
+A consideration for this cohort is the presence of outliers that are caused by players who have only taken part in a small number of games. If a player had 3 exceptional games before getting injured/retiring, their *average* performance may not be especially representative of what would be expected over a longer period of time
+
+Of course, it's nice to keep these players in the dataset. By deriving a variable of the *# of games* played, users can set this parameter to include/exclude players as they see appropriate. What constitutes a representative sample of games per player is ultimately subjective, but I have set the default for the app at **22 games** - equivalent to one season of football, excluding finals
+
+Calculating the number of games requires aggregation of **player_id** then a join back to the *player-statistics* table
+
+```{r number of games, results='hide', message=FALSE, warning=FALSE}
+# Extract out number of games & join back 
+player <- afl.2 %>%
+  group_by(player_id) %>% 
+  summarise(Games = dplyr::n()) %>% 
+  left_join(player, by = "player_id")
+```
+
+### Player Team
+
+The team of the player is included in the original dataset that has individual match-stats
+
+However players routinely change teams as part of trades & free-agency. This complicates things as some players will have played in multiple teams. As such, we are specifically interested in a players **most recent team**
+
+This can be elucidated by *ordering* the original dataset from *most recent* to *least recent* game, then filtering to keep only a distinct record of the **player_id** & **player_team** from their most recent match
+
+```{r number of games 2}
+# extract most recent team 
+player <- afl.1 %>% 
+  arrange(desc(match_id)) %>% # to get most recent team 
+  select(player_id, player_team) %>% 
+  distinct(player_id, .keep_all = TRUE) %>% # only distinct records 
+  left_join(player, by = "player_id") 
+```
+
+### Player Position
+
+Player position is a useful filter to narrow the data to only players for which a statistic is relevant. For example, a defender would be expected to perform well on *spoils*, but not *score involvements*. As such, the option to limit the data to defenders would be welcome
+
+By extracting out the unique elements of the **player_position** field ... 
+
+```{r player positions 1}
+position <- afl.1 %>% 
+  select(player_id, 
+         player_position)
+
+unique_positions <- unique(position$player_position)
+unique_positions
+```
+
+We observe 19 distinct positions, corresponding to the specific position of the selected team for each match ... i.e. *left forward pocket* & *right half back flank*. For the present analysis, this level of positional-granularity isn't required. We're more interested in broadly distinguishing ...
+
+* Forwards
+* Midfielders
+* Defenders
+* Rucks
+
+Let's bucket the positions into these broader categories
+
+```{r player position 2}
+# Bucketed positions 
+# Midfielders
+position$PositionType[
+  position$player_position ==  "C" | 
+    position$player_position  == "RR" | 
+    position$player_position  ==  "R" | 
+    position$player_position  ==  "WL" | 
+    position$player_position  ==  "WR"] <- 
+  "Midfield"
+
+#Defenders
+position$PositionType[
+  position$player_position ==  "BPL" | 
+    position$player_position  == "FB" | 
+    position$player_position  ==  "BPR" | 
+    position$player_position  ==  "HBFL" | 
+    position$player_position  ==  "HBFR" | 
+    position$player_position  ==  "CHB"] <- 
+  "Defender"
+
+#Forwards
+position$PositionType[
+  position$player_position ==  "FPR" | 
+    position$player_position  == "FF" | 
+    position$player_position  ==  "HFFL" | 
+    position$player_position  ==  "FPL" | 
+    position$player_position  ==  "HFFR" | 
+    position$player_position  ==  "CHF"] <- 
+  "Forward"
+
+#Rucks
+position$PositionType[
+  position$player_position ==  "RK"] <- 
+  "Ruck"
+
+# Interchange 
+position$PositionType[
+  position$player_position ==  "INT"] <- 
+  "Interchange"
+```
+
+Creating a new variable **Position Type**
+
+Player position in this data is captured on a *per game* basis, meaning some players will accrue multiple positions. For example, Dustin Martin is named as a forward in some games, and on the ball in others
+
+One way to navigate this is to count all the positions each player has been named in, then filter to only the position with the *highest count* of games for each player (a proxy for their most *common* position)
+
+```{r player position 3, results='hide', message=FALSE, warning=FALSE}
+# count how often players named in a specific position
+position2 <- position %>% 
+  group_by(player_id, 
+           PositionType) %>% 
+  summarise(Position_Count = dplyr::n()) # count of positions per player
+
+# Order by count of positions, for each player 
+position2 <- position2[with(position2, 
+                            order(player_id, 
+                                  Position_Count)), ]
+
+# keep only the 'position' with the max count
+position2 <- position2 %>% 
+  group_by(player_id) %>% 
+  top_n(1, Position_Count)
+
+# For rare cases where two positions have an equal game count, keep only one position
+position2 <- position2 %>% distinct(player_id, .keep_all = TRUE)
+
+# remove position count 
+position2$Position_Count <- NULL
+
+# Join back to dataframe 
+player <- left_join(player, position2, by = "player_id")
+```
+
+This is satisfactory in that every player has now been ascribed a *unique* position 
+
+However, one further issue is that players who started on the bench more than on the ground have been designated **interchange** - strictly speaking, not a position. 
+
+I explored removing interchange entirely before filtering. However, of the ~ 950 total players, 53 had **only** been named on the interchange. By removing interchange, some players were left *without* a position
+
+This gap could be remedied be googling, then manually imputing the position of these players. But for all intents & purposes (ergo laziness of the author), a small number of player-positions designated as interchange will not dramatically impact the visualization 
+
+As such, our metric is strictly speaking, **most commonly *named* starting position type**
+
+## Final Tidying
+
+To finish up, I have cleaned up the dataframe (re-order variables, changed column types removed redundant columns)
+
+```{r final tidy}
+# remove ID
+player$player_id <- NULL
+
+# combine first and last name
+player <- player %>% 
+  unite(Player_Name,
+        c(player_first_name, player_last_name),
+        remove = TRUE)
+
+# remove underscore
+player$Player_Name <- gsub("_", " ", player$Player_Name, fixed = TRUE)
+
+# Re-order Columns
+player <- player[,c(3, 1, 2, 48, 4:47)]
+
+# team as factor
+player$player_team <- as.factor(player$player_team)
+# position as factor
+player$PositionType <- as.factor(player$PositionType)
+
+# games as numeric
+player$Games <- as.numeric(player$Games)
+```
+
+Resulting in the below final dataset:
+
+```{r print table preview4, echo=FALSE}
+kable(head(player)) %>% #head limits to just top rows
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive", font_size = 8))
+```
+
+## Deploying the Shiny App 
+
+With this data, we can build out an application to create a dynamic, interactive scatterplot 
+
+For those not *au-fait* with R, I have hosted the [app on Shiny Apps](https://perkot.shinyapps.io/afl-player-stats-dashboard/). As I am using a free-account, this link is subject to bandwidth limits, & may not work!
+
+Alternatively, the full code to deploy this app locally can be found at [my GitHub page](https://github.com/perkot/afl-player-dashboard/blob/master/Shiny%20-%20Player-Stats-App.R) 
+
+Clicking the app-link, or running this script will produce something like the below:
+
+![Alt text](/Users/perkot/Dropbox/Analytics/Personal/R/git/afl-player-dashboard/Shiny Player Stats App.png)
+In the left hand panel, there are several parameters that can be changed. Users can select *any* of the included statistics to compare on the scatterplot
+
+Players can be further filtered by their *team*, *position*, or *the number of games* they have played between 2017 and 2020
+
+## Visualisation & Exploration of the data 
+
+Although the above Shiny app is the definitive way to explore this data, it can just as easily be replicated manually with **ggplot2** & **plotly**
+
+In the below section, I will showcase some player/metric combinations I found to be interesting 
+
+To begin, let's create a generic *ggplot theme* for visualization 
+
+```{r plot theme}
+Plot_Theme2 <-
+  theme_minimal() + # start with a minimal theme and add what we need
+  theme(text = element_text(color = "gray20"),
+        legend.position = "top", # position the legend in the upper left 
+        legend.direction = "horizontal",
+        legend.justification = 0.1, # anchor point for legend.position.
+        legend.title = element_text(size = 10, color = "gray20"),
+        legend.text = element_text(size = 10, color = "gray20"),
+        axis.text = element_text(face = "italic"),
+        axis.title.x = element_text(vjust = -1, size = 10), # move title away axis
+        axis.title.y = element_text(vjust = 2, size = 10), # move away for axis
+        axis.ticks.y = element_blank(), # remove elements
+        axis.line = element_line(color = "gray20", size = 0.5),
+        axis.line.y = element_blank(),
+        panel.grid.major = element_line(color = "gray80", size = 0.5),
+        panel.grid.minor = element_line(color = "gray80", size = 0.5),
+        panel.grid.major.x = element_blank(),
+        plot.title = element_text(size = 11)
+  )
+```
+
+& create a number of custom text-overlays for specific players, so their *data-point* can be directly identified on the plot 
+
+```{r text overlay}
+Buddy <- player %>%
+  filter(Player_Name %in% c("Lance Franklin"))
+
+McGovern <- player %>%
+  filter(Player_Name %in% c("Jeremy McGovern"))
+
+SaadMcKenna <- player %>%
+  filter(Player_Name %in% c("Adam Saad",
+                            "Conor McKenna"))
+```
+
+In the spirit of **The Flying Bulldozer** - let's introduce three further *sobriquets* 
+
+### Jeremy McGovern - **"The Roaming Backboard"**
+
+Jeremy McGovern is considered by many to be the premium spare defender in the competition, with a remarkable knack for reading the ball in the air. The stats emphatically support this
+
+```{r plot 1 JM, warning=FALSE, message=FALSE }
+p1 <- player %>% 
+  filter(Games >= 22) %>% 
+  ggplot(aes(label = Player_Name,
+             label2 = Games,
+             color = PositionType))
+p1 <- p1 + geom_point(aes(intercept_marks, 
+                        contested_marks), 
+                    shape = 16, 
+                    size = 3, 
+                    alpha = 4/10) + 
+  geom_text(data = McGovern, 
+            size = 2, 
+            colour = "#730202",
+            aes(intercept_marks, contested_marks)) +
+  scale_colour_manual(values=c("#b80909", 
+                               "#0d6cb5", 
+                               "#e0842d", 
+                               "#31ad28", 
+                               "#e3c609")) +
+  Plot_Theme2
+p1 <- ggplotly(p1)
+p1
+```
+Not only is Jeremy McGovern in the top handful of players for average contested marks per game (& far & away the best *defender* on this metric), but he also averages more intercept marks than any player in the competition 
+
+This makes Jeremy McGovern a clear outlier.When balls are launched into defensive 50, they are more often than not going to be repelled by the best defensive, contested, aerialist in the business - **the roaming backboard**
+
+### Buddy Franklin - **"The Scoring Beast"**
+
+Buddy, & his accolades as a player need no introduction. No-one would argue there is a better current-day forward in the competition. 
+
+It's stark just how superior Buddy's scoring power is to other players
+
+```{r plot 2 BF, message=FALSE, warning=FALSE}
+p2 <- player %>% 
+  filter(Games >= 22) %>% 
+  ggplot(aes(label = Player_Name,
+             label2 = Games,
+             color = PositionType))
+p2 <- p2 + geom_point(aes(goals, 
+                        score_involvements), 
+                    shape = 16, 
+                    size = 3, 
+                    alpha = 4/10) + 
+  geom_text(data = Buddy, 
+            size = 2, 
+            colour = "#07406b",
+            aes(goals, score_involvements)) +
+  scale_colour_manual(values=c("#b80909", 
+                               "#0d6cb5", 
+                               "#e0842d", 
+                               "#31ad28", 
+                               "#e3c609")) +
+  Plot_Theme2
+p2 <- ggplotly(p2)
+p2
+```
+Buddy not only kicks more goals than any other player, he is also directly involved in more scoring chains, helping others around him to hit the scoreboard. It may be stating the painfully obvious, but Buddy is a **scoring beast**
+
+Hopefully we will see an injury free Lance Franklin in 2021
+
+### Adam Saad & Conor McKenna - **"The Bouncing-Bomber-Brothers"** 
+
+There are not many more exciting sights in the AFL than a player streaming down the field at pace, thumping the ball into the turf
+
+Over the past four seasons, only **5 players** have averaged more than 1.5 *running bounces* per game, & of these 5, there are two clear outliers. The gentlemen in question are Conor McKenna & Adam Saad - who interestingly are both running defenders for Essendon. For this reason they are ordained **the bouncing bomber brothers**
+
+```{r plot 4 BBB, message=FALSE, warning=FALSE}
+p4 <- player %>% 
+  filter(Games >= 22) %>% 
+  ggplot(aes(label = Player_Name,
+             label2 = Games,
+             color = PositionType))
+p4 <- p4 + geom_point(aes(bounces, 
+                          metres_gained), 
+                      shape = 16, 
+                      size = 3, 
+                      alpha = 4/10) + 
+  geom_text(data = SaadMcKenna, 
+            size = 2, 
+            colour = "#730202",
+            aes(bounces, metres_gained)) +
+  scale_colour_manual(values=c("#b80909", "#0d6cb5", "#e0842d", "#31ad28", "#e3c609")) +
+  Plot_Theme2
+p4 <- ggplotly(p4)
+p4
+```
+
+The 'brothers' also average ~ *350m* gained per match, so its fair to say their *fleetness of foot* has been essential to Essendon's territory game
+
+Sadly Conor McKenna has announcement his retirement & return to Ireland. While speculation is mounting Adam Saad may request a trade away from Essendon. The brotherhood is due to end just as soon as it has been anointed 
+
+For anyone reading, I will be interested in any other insights to come from this app!
