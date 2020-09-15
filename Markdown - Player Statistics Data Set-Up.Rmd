@@ -13,7 +13,8 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-The ABC recently publish an interesting piece of data-journalism exploring ["what makes Fremantle Dockers captain Nat Fyfe so good?"](https://www.abc.net.au/news/2020-09-03/what-makes-afl-fremantle-dockers-captain-nat-fyfe-so-good/12620266) The authors put forth a compelling, data-driven case for the specific attributes that make Nathan Fyfe stand out from other players 
+The ABC recently publish an interesting piece of data-journalism exploring ["what makes Fremantle Dockers captain Nat Fyfe so good?"](https://www.abc.net.au/news/2020-09-03/what-makes-afl-fremantle-dockers-captain-nat-fyfe-so-good/12620266) The authors put forth a compelling, data-driven case for the specific attributes that make Nathan Fyfe stand out from other players
+
 Below is an eye-catching visualization from the article:
 
 ![Alt text](/Users/perkot/Dropbox/Analytics/Personal/R/git/afl-player-dashboard/The Flying Bulldozer screencap.png)
@@ -338,7 +339,7 @@ kable(head(player)) %>% #head limits to just top rows
 
 With this data, we can build out an application to create a dynamic, interactive scatterplot 
 
-For those not *au-fait* with R, I have hosted the [app on Shiny Apps](https://perkot.shinyapps.io/afl-player-stats-dashboard/). As I am using a free-account, this link is subject to bandwidth limits, & may not work!
+For those not *au-fait* with R, I have hosted the [app on Shiny Apps](https://perkot.shinyapps.io/afl-player-dashboard-shiny/). As I am using a free-account, this link is subject to bandwidth limits, & may not work!
 
 Alternatively, the full code to deploy this app locally can be found at [my GitHub page](https://github.com/perkot/afl-player-dashboard/blob/master/Shiny%20-%20Player-Stats-App.R) 
 
