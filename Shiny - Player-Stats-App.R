@@ -382,17 +382,28 @@ ui <- fluidPage(
                                       "Ruck"
                          )),
       
-      
+      # text
       tags$small(paste0(
         "This app allows users to select two match day statistics, and explore AFL player 'averages' (mean value) for these metrics on a scatterplot."
       )),
       
+      # text
       tags$small(paste0(
         "The data summarised is from all games from season 2017 to the present"
       )),
       
+      tags$br(), #space
+      tags$br(), # space
+      
+      # web link
+      tags$a(href="https://github.com/perkot/afl-player-dashboard/blob/master/Shiny%20-%20Player-Stats-App.R", "Get Code"),
+      
+      tags$br(),
+      
+      tags$a(href="https://perkot.github.io/afl-player-dashboard/", "Walkthrough")
+      
     ),
-    # Output: Show scatterplot
+    # Output: Scatterplot
     mainPanel(
       plotlyOutput(outputId = "scatterplot", 
                    width = 800, height = 600)
@@ -412,10 +423,10 @@ server <- function(input, output) {
   output$scatterplot <- renderPlotly({
     
     Data <- subset(player,
-                   player_team %in% input$player_team & # team as an input
-                     PositionType %in% input$PositionType & # position as an input
-                     Games >= input$Games[1] & 
-                     Games <= input$Games[2]) # games as an input 
+                   player_team %in% input$player_team & # team 
+                     PositionType %in% input$PositionType & # position 
+                     Games >= input$Games[1] & # games
+                     Games <= input$Games[2]) 
     
     # -------
     # PLOT
@@ -426,9 +437,11 @@ server <- function(input, output) {
                     color = PositionType))
     p <- p + geom_point(aes_string(input$x, input$y), 
                         shape = 16, size = 4, alpha = 4/10) + 
-      scale_colour_manual(values=c("#b80909", "#0d6cb5", "#e0842d", "#31ad28", "#e3c609")) +
-      # scale_colour_manual(values=c("#F93433", "#049A54", "#365DA3", "#E29142", "#EDD537")) +
-      # scale_colour_gradient(low = "#b37b7b", high = "#b80909") +
+      scale_colour_manual(values=c("#b80909", 
+                                   "#0d6cb5", 
+                                   "#e0842d", 
+                                   "#31ad28", 
+                                   "#e3c609")) +
       Plot_Theme2
     final.p <- ggplotly(p)
     final.p
